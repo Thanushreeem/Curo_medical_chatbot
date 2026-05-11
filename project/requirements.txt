@@ -1,0 +1,27 @@
+<<<<<<< HEAD:requirements.txt
+flask
+python-dotenv
+pypdf
+pinecone-client
+langchain==0.2.16
+langchain-community==0.2.16
+langchain-core==0.2.38
+langchain-pinecone
+langchain-huggingface
+langchain-groq
+tiktoken
+gunicorn
+sentence-transformers
+=======
+flask==2.3.3
+python-dotenv==1.0.1
+pypdf==3.17.4
+langchain==0.2.16
+langchain-community==0.2.16
+langchain-core==0.2.38
+langchain-huggingface==0.0.3
+langchain-groq==0.1.9
+sentence-transformers
+endee
+gunicorn==21.2.0
+>>>>>>> 313a12b1296df07c8818865cb4cc9996bbb2cbd0:project/requirements.txt
