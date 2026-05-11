@@ -58,6 +58,7 @@ def chat():
         print("ERROR:", e)
         return "Error occurred. Please try again."
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
+    
+    if __name__ == "__main__":
+        port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
