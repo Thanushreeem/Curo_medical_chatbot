@@ -1,78 +1,60 @@
 import os
-os.environ["TRANSFORMERS_NO_TF"] = "1"
-
-# Flask
 from flask import Flask, render_template, request
-
-# Env
 from dotenv import load_dotenv
-
-# LangChain
-from langchain_pinecone import PineconeVectorStore
+from endee import Endee
 from langchain_groq import ChatGroq
-from langchain.chains import create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain_core.prompts import ChatPromptTemplate
+from src.helper import download_hugging_face_embeddings
+from prompt import PROMPT
 
-# Your files
-from helper import download_hugging_face_embeddings
-from prompt import system_prompt
-
-# ===== LOAD ENV =====
 load_dotenv()
 
 app = Flask(__name__)
 
-# ===== EMBEDDINGS =====
-embeddings = download_hugging_face_embeddings()
+#  EMBEDDINGS 
+embeddings_model = download_hugging_face_embeddings()
 
-# ===== PINECONE INDEX =====
-index_name = "chatbot"
+#  CONNECT TO ENDEE 
+client = Endee()
 
-docsearch = PineconeVectorStore.from_existing_index(
-    index_name=index_name,
-    embedding=embeddings
-)
+index = client.get_index(name="medicalchatbot")
 
-retriever = docsearch.as_retriever(
-    search_type="similarity",
-    search_kwargs={"k": 3}
-)
-
-# ===== GROQ LLM =====
+#  LLM
 llm = ChatGroq(
     groq_api_key=os.getenv("GROQ_API_KEY"),
-    model_name="llama-3.1-8b-instant",
-    temperature=0.4
+    model_name="llama-3.3-70b-versatile",
+    temperature=0.1,
+    max_tokens=512
 )
 
-# ===== PROMPT =====
-prompt = ChatPromptTemplate.from_messages([
-    ("system", system_prompt),
-    ("human", "{input}")
-])
+def retrieve_context(query, top_k=6):
+    """Search Endee for relevant chunks"""
+    query_vector = embeddings_model.embed_query(query)
+    results = index.query(vector=query_vector, top_k=top_k)
+    context = "\n\n".join([r["meta"]["text"] for r in results if "meta" in r])
+    return context
 
-# ===== RAG CHAIN =====
-qa_chain = create_stuff_documents_chain(llm, prompt)
-rag_chain = create_retrieval_chain(retriever, qa_chain)
+def get_answer(query):
+    """Get answer from LLM using retrieved context"""
+    context = retrieve_context(query)
+    prompt_text = PROMPT.format(context=context, question=query)
+    response = llm.invoke(prompt_text)
+    return response.content
 
-# ===== ROUTES =====
+# ROUTES
 @app.route("/")
-def index():
+def index_page():
     return render_template("chat.html")
 
 @app.route("/get", methods=["POST"])
 def chat():
     msg = request.form["msg"]
-
     try:
-        response = rag_chain.invoke({"input": msg})
-        return response["answer"]
+        result = get_answer(msg)
+        return result
     except Exception as e:
-        print("ERROR:", e)
-        return "Error occurred. Check server logs."
+        print(f"Error: {e}")
+        return "An error occurred. Please try again."
 
-# ===== RUN =====
+#  RUN 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 7860))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=5000)
